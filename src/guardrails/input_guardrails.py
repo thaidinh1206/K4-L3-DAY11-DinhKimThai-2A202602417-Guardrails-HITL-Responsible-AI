@@ -51,14 +51,30 @@ def detect_injection(user_input: str) -> InputStatus:
     Returns:
         ``"BLOCK"`` if injection detected (chặn), ``"ALLOW"`` otherwise (cho qua).
     """
+    import unicodedata
+
+    normalized = unicodedata.normalize("NFKC", user_input or "")
+    zero_width = "\u200b\u200c\u200d\ufeff\u2060"
+    normalized = normalized.translate(str.maketrans("", "", zero_width))
+
     INJECTION_PATTERNS = [
-        # TODO: Add at least 5 regex patterns
-        # Example:
-        # r"ignore (all )?(previous|above) instructions",
+        r"ignore\s+(all\s+)?(previous|above|prior)?\s*instructions?",
+        r"disregard\s+(all\s+)?(previous|above|prior)?\s*(instructions?|rules?|directives?)",
+        r"forget\s+(your\s+)?(instructions?|rules?|prompt)",
+        r"override\s+(your\s+)?(system\s+)?(prompt|instructions?)",
+        r"you\s+are\s+now\b",
+        r"\bDAN\b",
+        r"pretend\s+(you\s+are|to\s+be)",
+        r"act\s+as\s+(a\s+|an\s+)?unrestricted",
+        r"system\s+prompt",
+        r"reveal\s+(your\s+)?(instructions?|prompt|system\s+prompt|password|api\s*key|secrets?|internal)",
+        r"show\s+(me\s+)?(your\s+)?(system\s+)?(prompt|instructions?|config)",
+        r"bỏ\s+qua\s+(mọi\s+)?hướng\s+dẫn",
+        r"tiết\s+lộ\s+(mật\s+khẩu|api|system\s*prompt)",
     ]
 
     for pattern in INJECTION_PATTERNS:
-        if re.search(pattern, user_input, re.IGNORECASE):
+        if re.search(pattern, normalized, re.IGNORECASE):
             return "BLOCK"
     return "ALLOW"
 
@@ -84,14 +100,37 @@ def topic_filter(user_input: str) -> InputStatus:
         ``"BLOCK"`` = chặn (off-topic hoặc topic cấm).
         ``"ALLOW"`` = cho qua (câu banking hợp lệ).
     """
-    input_lower = user_input.lower()
+    import unicodedata
 
-    # TODO: Implement logic:
+    if not user_input or not user_input.strip():
+        return "BLOCK"
+
+    normalized = unicodedata.normalize("NFKC", user_input)
+    zero_width = "\u200b\u200c\u200d\ufeff\u2060"
+    normalized = normalized.translate(str.maketrans("", "", zero_width))
+    input_lower = normalized.lower()
+
+    nfkd = unicodedata.normalize("NFKD", input_lower)
+    unaccented_lower = "".join(c for c in nfkd if not unicodedata.combining(c))
+
     # 1. If input contains any blocked topic -> return "BLOCK"
-    # 2. If input doesn't contain any allowed topic -> return "BLOCK"
-    # 3. Otherwise -> return "ALLOW"
+    for blocked in BLOCKED_TOPICS:
+        pattern = r"\b" + re.escape(blocked.lower())
+        if re.search(pattern, input_lower) or re.search(pattern, unaccented_lower):
+            return "BLOCK"
 
-    pass  # Replace with your implementation
+    # 2. If input doesn't contain any allowed topic -> return "BLOCK"
+    has_allowed = False
+    for allowed in ALLOWED_TOPICS:
+        if allowed.lower() in input_lower or allowed.lower() in unaccented_lower:
+            has_allowed = True
+            break
+
+    if not has_allowed:
+        return "BLOCK"
+
+    # 3. Otherwise -> return "ALLOW"
+    return "ALLOW"
 
 
 # ============================================================
@@ -144,14 +183,22 @@ class InputGuardrailPlugin(base_plugin.BasePlugin):
         self.total_count += 1
         text = self._extract_text(user_message)
 
-        # TODO: Implement logic:
         # 1. Call detect_injection(text)
-        #    - If "BLOCK": increment blocked_count, return self._block_response("...")
-        # 2. Call topic_filter(text)
-        #    - If "BLOCK": increment blocked_count, return self._block_response("...")
-        # 3. If both return "ALLOW": return None (let message through)
+        if detect_injection(text) == "BLOCK":
+            self.blocked_count += 1
+            return self._block_response(
+                "I cannot process that request. Your message contains unauthorized instructions."
+            )
 
-        pass  # Replace with your implementation
+        # 2. Call topic_filter(text)
+        if topic_filter(text) == "BLOCK":
+            self.blocked_count += 1
+            return self._block_response(
+                "I'm a VinBank virtual assistant and can only help with banking-related questions."
+            )
+
+        # 3. If both return "ALLOW": return None (let message through)
+        return None
 
 
 # ============================================================

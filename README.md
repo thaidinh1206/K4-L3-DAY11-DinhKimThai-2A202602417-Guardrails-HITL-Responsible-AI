@@ -4,6 +4,13 @@
 > 🎯 **Mục tiêu:** xây **Blue** (phòng thủ), rồi red-team **Red** + **Red Advance**.  
 > ✅ Làm theo **Checkpoint 1 → 5** trong [`CHECKPOINTS.md`](CHECKPOINTS.md) · nộp theo [`SUBMISSION.md`](SUBMISSION.md).
 
+## Thông tin học viên
+- **Họ và tên:** Đinh Kim Thái
+- **MSSV:** 2A202602417
+- **Lớp / Khóa:** Khóa 4 (L3)
+- **Tên bài:** Day 11 — Controlled Agent Security (Guardrails, HITL, Responsible AI)
+- **Repository:** `K4-L3-DAY11-DinhKimThai-2A202602417-Guardrails-HITL-Responsible-AI`
+
 ---
 
 ## Thời lượng
